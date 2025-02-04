@@ -1,0 +1,103 @@
+---- Skapar User-tabellen
+--CREATE TABLE Users (
+--    UserID INT IDENTITY(1,1) PRIMARY KEY,
+--    UserName VARCHAR(100) NOT NULL,
+--    Email VARCHAR(100) UNIQUE NOT NULL,
+--    Password VARCHAR(255) NOT NULL
+--);
+
+---- Skapar Car-tabellen
+--CREATE TABLE Cars (
+--    CarID INT IDENTITY(1,1) PRIMARY KEY,
+--    UserID INT NOT NULL,
+--    LicensePlate VARCHAR(50) UNIQUE NOT NULL,
+--    Model VARCHAR(100) NOT NULL,
+--    FOREIGN KEY (UserID) REFERENCES Users(UserID) ON DELETE CASCADE
+--);
+
+---- Skapar UserCar-tabellen (hanterar many-to-many men utan ON DELETE CASCADE på CarID)
+--CREATE TABLE UserCar (
+--    ID INT IDENTITY(1,1) PRIMARY KEY,
+--    UserID INT NOT NULL,
+--    CarID INT NOT NULL,
+--    FOREIGN KEY (UserID) REFERENCES Users(UserID) ON DELETE CASCADE,
+--    FOREIGN KEY (CarID) REFERENCES Cars(CarID) ON DELETE NO ACTION  -- Viktigt för att undvika cykel
+--);
+
+-- Skapar Parking-tabellen (kopplad till Cars med ON DELETE CASCADE)
+--CREATE TABLE Parking (
+--    ParkingID INT IDENTITY(1,1) PRIMARY KEY,
+--    CarID INT NOT NULL,
+--    Timestamp DATETIME DEFAULT GETDATE(),
+--    Duration DECIMAL(5,2) NOT NULL,
+--    PayMethod VARCHAR(50) NOT NULL,
+--    FOREIGN KEY (CarID) REFERENCES Cars(CarID) ON DELETE CASCADE
+--);
+
+
+---- Lägg till 10 användare
+--INSERT INTO Users (UserName, Email, Password) VALUES
+--('Alice Johnson', 'alice@example.com', 'password123'),
+--('Bob Smith', 'bob@example.com', 'securepass'),
+--('Charlie Brown', 'charlie@example.com', 'charlie123'),
+--('David Wilson', 'david@example.com', 'davidpass'),
+--('Eva Davis', 'eva@example.com', 'eva1234'),
+--('Frank Miller', 'frank@example.com', 'frankpass'),
+--('Grace Lee', 'grace@example.com', 'grace2024'),
+--('Henry Clark', 'henry@example.com', 'henrypass'),
+--('Isla Thompson', 'isla@example.com', 'isla456'),
+--('Jack White', 'jack@example.com', 'jack789');
+
+---- Lägg till bilar för varje användare
+--INSERT INTO Cars (UserID, LicensePlate, Model) VALUES
+--(1, 'ABC123', 'Toyota Corolla'),
+--(2, 'XYZ789', 'Honda Civic'),
+--(3, 'LMN456', 'Ford Focus'),
+--(4, 'JKL321', 'Tesla Model 3'),
+--(5, 'PQR654', 'BMW X5'),
+--(6, 'STU987', 'Mercedes C-Class'),
+--(7, 'VWX258', 'Audi A4'),
+--(8, 'YZA753', 'Volvo XC90'),
+--(9, 'BCD159', 'Nissan Qashqai'),
+--(10, 'EFG357', 'Kia Sportage');
+
+---- Lägg till data i UserCar-tabellen (för many-to-many-relation)
+--INSERT INTO UserCar (UserID, CarID) VALUES
+--(1, 1), (2, 2), (3, 3), (4, 4), (5, 5),
+--(6, 6), (7, 7), (8, 8), (9, 9), (10, 10);
+
+-- Lägg till parkeringshistorik
+--INSERT INTO Parking (CarID, Timestamp, Duration, PayMethod) VALUES
+--(1, GETDATE(), 2.5, 'Credit Card'),
+--(2, GETDATE(), 1.0, 'Mobile Payment'),
+--(3, GETDATE(), 3.0, 'Cash'),
+--(4, GETDATE(), 1.5, 'Credit Card'),
+--(5, GETDATE(), 2.0, 'Mobile Payment'),
+--(6, GETDATE(), 4.0, 'Debit Card'),
+--(7, GETDATE(), 0.5, 'Credit Card'),
+--(8, GETDATE(), 3.5, 'Cash'),
+--(9, GETDATE(), 2.2, 'Mobile Payment'),
+--(10, GETDATE(), 1.8, 'Credit Card');
+
+--CREATE PROCEDURE GetParkingHistory
+--    @UserID INT
+--AS
+--BEGIN
+--    SET NOCOUNT ON;
+
+--    SELECT 
+--        U.UserID,
+--        U.UserName,
+--        C.CarID,
+--        C.LicensePlate,
+--        C.Model,
+--        P.ParkingID,
+--        P.Timestamp,
+--        P.Duration,
+--        P.PayMethod
+--    FROM Parking P
+--    INNER JOIN Cars C ON P.CarID = C.CarID
+--    INNER JOIN Users U ON C.UserID = U.UserID
+--    WHERE U.UserID = @UserID
+--    ORDER BY P.Timestamp DESC;
+--END;
