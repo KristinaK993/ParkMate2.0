@@ -18,4 +18,5 @@ public partial class Car
     public virtual User User { get; set; } = null!;
 
     public virtual ICollection<UserCar> UserCars { get; set; } = new List<UserCar>();
+
 }
