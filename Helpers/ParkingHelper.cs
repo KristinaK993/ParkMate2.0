@@ -1,7 +1,6 @@
-﻿using System;
-using System.Linq;
-using Spectre.Console;
+﻿using Microsoft.EntityFrameworkCore;
 using ParkMate2._0.Models;
+using Spectre.Console;
 
 namespace ParkMate2._0.Helpers
 {
@@ -14,20 +13,20 @@ namespace ParkMate2._0.Helpers
             {
                 var cars = db.Cars.Where(c => c.UserId == user.UserId).ToList();
 
-                if (!cars.Any())
+                if (!cars.Any()) //If the user doesnt have any registered cars
                 {
-                    AnsiConsole.MarkupLine("[red]You have no registered cars! Register a car first.[/]");
+                    AnsiConsole.MarkupLine("[red]You have no registered car! Register a car first.[/]");
                     Console.ReadKey();
                     return;
                 }
 
-                // Visa parkeringsplatser i tabellformat
+                // show parking spot in a table
                 AnsiConsole.MarkupLine("[yellow]Available Parking Spots in Gothenburg:[/]");
                 ShowParkingSpots();
 
-                // Låt användaren välja parkeringsplats
+                // let user choose parking spot
                 int selectedIndex;
-                while (true) // Loopa tills ett giltigt val görs
+                while (true) // Loop until a valid choice is made
                 {
                     try
                     {
@@ -35,7 +34,7 @@ namespace ParkMate2._0.Helpers
 
                         if (selectedIndex >= 0 && selectedIndex < ParkingSpotData.GetAllSpots().Count)
                         {
-                            break; // Bryt loopen om valet är giltigt
+                            break; // brake the loop if a choice is valid
                         }
                         else
                         {
@@ -49,12 +48,12 @@ namespace ParkMate2._0.Helpers
                 }
                 Console.Clear();
 
-                // Använd det valda indexet för att hämta rätt parkeringsplats
+                // use proper index for getting the correct parking spot
                 var parkingSpot = ParkingSpotData.GetAllSpots()[selectedIndex];
                 AnsiConsole.MarkupLine($"[green]You have selected {parkingSpot.Name} at {parkingSpot.PricePerHour} SEK/hour.[/]");
 
 
-                // Välj bil att parkera
+                // select car to park
                 var carChoices = cars.Select(c => $"{c.Model} ({c.LicensePlate})").ToList();
                 var selectedCar = AnsiConsole.Prompt(
                     new SelectionPrompt<string>()
@@ -63,14 +62,14 @@ namespace ParkMate2._0.Helpers
 
                 var car = cars.FirstOrDefault(c => $"{c.Model} ({c.LicensePlate})" == selectedCar);
 
-                // Välj betalningsmetod
+                // choose paymethod
                 var paymentMethods = new List<string> { "Swish", "Credit Card", "Invoice" };
                 var selectedPaymentMethod = AnsiConsole.Prompt(
                     new SelectionPrompt<string>()
                         .Title("[yellow]Select a payment method:[/]")
                         .AddChoices(paymentMethods));
 
-                // Starta parkeringen och spara i databasen
+                // Start parking and save in DB
                 var newParking = new Parking
                 {
                     CarId = car.CarId,
@@ -87,7 +86,7 @@ namespace ParkMate2._0.Helpers
                 Console.ReadKey();
             }
         }
-        public static void ShowParkingSpots()
+        public static void ShowParkingSpots()  // table for parkingspot
         {
             var table = new Table();
             table.Border(TableBorder.Rounded);
@@ -143,7 +142,7 @@ namespace ParkMate2._0.Helpers
                     return;
                 }
 
-                // Beräkna tid och kostnad
+                // calculate time and cost
                 DateTime startTime = activeParking.Timestamp ?? DateTime.Now;
                 DateTime endTime = DateTime.Now;
                 TimeSpan duration = endTime - startTime;
@@ -153,7 +152,7 @@ namespace ParkMate2._0.Helpers
                 activeParking.Duration = totalHours;
                 db.SaveChanges();
 
-                // Sammanfattning
+                // summary
                 Console.Clear();
                 AnsiConsole.MarkupLine("[green]Parking Summary:[/]");
                 AnsiConsole.MarkupLine($"[yellow]Car:[/] {car.Model} ({car.LicensePlate})");
@@ -165,8 +164,8 @@ namespace ParkMate2._0.Helpers
                 Console.ReadKey();
             }
         }
-    
-    public static void ShowParkingHistory(User user)
+
+        public static void ShowParkingHistory(User user)
         {
             Console.Clear();
             AnsiConsole.MarkupLine("[blue]Your Parking History:[/]");
@@ -216,6 +215,41 @@ namespace ParkMate2._0.Helpers
             }
 
             Console.ReadKey();
+        }
+        public static void ShowAllParkings()
+        {
+            using (var db = new ParkMate20Context())
+            {
+                var parkings = db.Parkings.Include(p => p.Car).ToList();
+
+                if (!parkings.Any())
+                {
+                    AnsiConsole.MarkupLine("[red]No parking records found![/]");
+                    Console.ReadKey();
+                    return;
+                }
+
+                var table = new Table();
+                table.AddColumn("[yellow]Parking ID[/]");
+                table.AddColumn("[yellow]Car Model[/]");
+                table.AddColumn("[yellow]License Plate[/]");
+                table.AddColumn("[yellow]Start Time[/]");
+                table.AddColumn("[yellow]Duration (Hours)[/]");
+
+                foreach (var parking in parkings)
+                {
+                    table.AddRow(
+                        parking.ParkingId.ToString(),
+                        $"[green]{parking.Car.Model}[/]",
+                        $"[blue]{parking.Car.LicensePlate}[/]",
+                        (parking.Timestamp ?? DateTime.Now).ToString("yyyy-MM-dd HH:mm"),
+                        (parking.Duration != null ? parking.Duration : 0m).ToString("F2")
+                    );
+                }
+
+                AnsiConsole.Write(table);
+                Console.ReadKey();
+            }
         }
     }
 }

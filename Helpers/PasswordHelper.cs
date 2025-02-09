@@ -6,7 +6,7 @@ namespace ParkMate2._0.Helpers
 {
     public static class PasswordHelper
     {
-        //Hashar lösenord med SHA256
+        //Hash password with SHA256
         public static string HashPassword(string password)
         {
             using var sha256 = SHA256.Create();
@@ -14,10 +14,12 @@ namespace ParkMate2._0.Helpers
             return Convert.ToBase64String(hashedBytes);
         }
 
-        //Verifierar lösenordet genom att jämföra med den hashade versionen
+        //Verifiy password by comparing it with the hashed version
         public static bool VerifyPassword(string inputPassword, string storedPassword)
         {
-            return HashPassword(inputPassword) == storedPassword;
+            string hashedInput = HashPassword(inputPassword);  // Hash inputpassword
+            return hashedInput == storedPassword;  // Comparing the hashed password with the stored hashvalue
         }
+
     }
 }

@@ -6,6 +6,7 @@ class Program
 {
     static void Main()
     {
+      
         while (true)
         {
             Console.Clear();
@@ -22,7 +23,7 @@ class Program
             switch (choice)
             {
                 case "Login":
-                    Login();
+                    UserHelper.Login();
                     break;
                 case "Register":
                     var newUser = UserHelper.RegisterUser(); //call on UserHelper
@@ -33,41 +34,6 @@ class Program
             }
         }
 
-        static void Login() //Login
-        {
-            Console.Clear();
-            AnsiConsole.MarkupLine("[blue]Log in to your ParkingMate:[/]");
-
-            while (true)
-            {
-                string email = AnsiConsole.Ask<string>("[yellow]Email:[/]").Trim();
-                string password = AnsiConsole.Prompt(
-                    new TextPrompt<string>("[yellow]Password:[/]").Secret()).Trim();
-
-                using (var db = new ParkMate20Context())
-                {
-                    var user = db.Users.FirstOrDefault(u => u.Email == email);
-
-                    if (user == null)
-                    {
-                        AnsiConsole.MarkupLine("[red]No account found with this email, try again![/]");
-                        continue;
-                    }
-
-                    if (!PasswordHelper.VerifyPassword(password, user.Password))
-                    {
-                        AnsiConsole.MarkupLine("[red]Incorrect password, try again![/]");
-                        continue;
-                    }
-
-                    //Send user to usermenu
-                    AnsiConsole.MarkupLine($"[green]Welcome back, {user.UserName}![/]");
-                    Console.ReadKey();
-                    UserMenu(user);
-                    return;
-                }
-            }
-        }
         static void UserMenu(User loggedInUser)
         {
             while (true)

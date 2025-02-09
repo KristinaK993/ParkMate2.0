@@ -19,7 +19,7 @@
         new ParkingSpot { Name = "Chalmers Campus", PricePerHour = 23 }
     };
 
-    // Metod för att hämta alla parkeringsplatser
+    // Method to get all parking spots
     public static List<ParkingSpot> GetAllSpots()
     {
         return parkingSpots;

@@ -16,4 +16,5 @@ public partial class User
     public virtual ICollection<Car> Cars { get; set; } = new List<Car>();
 
     public virtual ICollection<UserCar> UserCars { get; set; } = new List<UserCar>();
+    public bool IsAdmin { get; set; }
 }
