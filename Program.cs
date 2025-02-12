@@ -6,7 +6,7 @@ class Program
 {
     static void Main()
     {
-      
+
         while (true)
         {
             Console.Clear();
@@ -27,54 +27,13 @@ class Program
                     break;
                 case "Register":
                     var newUser = UserHelper.RegisterUser(); //call on UserHelper
-                    UserMenu(newUser); // sending user to menu
+                    UserHelper.UserMenu(newUser); // sending user to menu
                     break;
                 case "Exit":
                     return;
             }
         }
 
-        static void UserMenu(User loggedInUser)
-        {
-            while (true)
-            {
-                Console.Clear();
-                AnsiConsole.MarkupLine($"[green]Welcome, {loggedInUser.UserName}![/]");
-                AnsiConsole.MarkupLine("[blue]Select an option:[/]");
-
-                var options = new List<string>
-        {
-            "Start Parking",
-            "End Parking",
-            "Parking History",
-            "Manage Cars",
-            "Log Out"
-        };
-
-                var choice = AnsiConsole.Prompt(
-                    new SelectionPrompt<string>()
-                        .Title("[yellow]What do you want to do?[/]")
-                        .AddChoices(options));
-
-                switch (choice)
-                {
-                    case "Start Parking":
-                        ParkingHelper.StartParking(loggedInUser);
-                        break;
-                    case "End Parking":
-                        ParkingHelper.EndParking(loggedInUser);
-                        break;
-                    case "Parking History":
-                        ParkingHelper.ShowParkingHistory(loggedInUser);
-                        break;
-                    case "Manage Cars":
-                        CarMenu(loggedInUser);
-                        break;
-                    case "Log Out":
-                        return;
-                }
-            }
-        }
         static void CarMenu(User user) //manage cars
         {
             while (true)

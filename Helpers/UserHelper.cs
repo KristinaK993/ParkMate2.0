@@ -109,6 +109,7 @@ public static class UserHelper
             var options = new List<string>
         {
             "Start Parking",
+            "View Current Parking",
             "End Parking",
             "Parking History",
             "Manage Cars",
@@ -124,6 +125,9 @@ public static class UserHelper
             {
                 case "Start Parking":
                     ParkingHelper.StartParking(loggedInUser);
+                    break;
+                case "View Current Parking":             
+                    ParkingHelper.ViewCurrentParking(loggedInUser);
                     break;
                 case "End Parking":
                     ParkingHelper.EndParking(loggedInUser);

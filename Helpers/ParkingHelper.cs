@@ -13,20 +13,20 @@ namespace ParkMate2._0.Helpers
             {
                 var cars = db.Cars.Where(c => c.UserId == user.UserId).ToList();
 
-                if (!cars.Any()) //If the user doesnt have any registered cars
+                if (!cars.Any()) // If the user doesn't have any registered cars
                 {
                     AnsiConsole.MarkupLine("[red]You have no registered car! Register a car first.[/]");
                     Console.ReadKey();
                     return;
                 }
 
-                // show parking spot in a table
+                // Show available parking spots in a table
                 AnsiConsole.MarkupLine("[yellow]Available Parking Spots in Gothenburg:[/]");
                 ShowParkingSpots();
 
-                // let user choose parking spot
+                // Let user choose parking spot
                 int selectedIndex;
-                while (true) // Loop until a valid choice is made
+                while (true)
                 {
                     try
                     {
@@ -34,7 +34,7 @@ namespace ParkMate2._0.Helpers
 
                         if (selectedIndex >= 0 && selectedIndex < ParkingSpotData.GetAllSpots().Count)
                         {
-                            break; // brake the loop if a choice is valid
+                            break;
                         }
                         else
                         {
@@ -48,12 +48,11 @@ namespace ParkMate2._0.Helpers
                 }
                 Console.Clear();
 
-                // use proper index for getting the correct parking spot
+                // Use proper index to get the correct parking spot
                 var parkingSpot = ParkingSpotData.GetAllSpots()[selectedIndex];
                 AnsiConsole.MarkupLine($"[green]You have selected {parkingSpot.Name} at {parkingSpot.PricePerHour} SEK/hour.[/]");
 
-
-                // select car to park
+                // Select a car to park
                 var carChoices = cars.Select(c => $"{c.Model} ({c.LicensePlate})").ToList();
                 var selectedCar = AnsiConsole.Prompt(
                     new SelectionPrompt<string>()
@@ -62,20 +61,33 @@ namespace ParkMate2._0.Helpers
 
                 var car = cars.FirstOrDefault(c => $"{c.Model} ({c.LicensePlate})" == selectedCar);
 
-                // choose paymethod
+                // Check if the selected car is already in an active parking session
+                var existingParking = db.Parkings
+                    .Where(p => p.CarId == car.CarId && p.Duration == 0)
+                    .FirstOrDefault();
+
+                if (existingParking != null)
+                {
+                    AnsiConsole.MarkupLine("[red]This car is already in an active parking session! End the current session before starting a new one.[/]");
+                    Console.ReadKey();
+                    return;
+                }
+
+                // Choose payment method
                 var paymentMethods = new List<string> { "Swish", "Credit Card", "Invoice" };
                 var selectedPaymentMethod = AnsiConsole.Prompt(
                     new SelectionPrompt<string>()
                         .Title("[yellow]Select a payment method:[/]")
                         .AddChoices(paymentMethods));
 
-                // Start parking and save in DB
+                // Start parking and save it in the database
                 var newParking = new Parking
                 {
                     CarId = car.CarId,
                     Timestamp = DateTime.Now,
                     Duration = 0,
-                    PayMethod = selectedPaymentMethod
+                    PayMethod = selectedPaymentMethod,
+                    ParkingSpotName = parkingSpot.Name
                 };
 
                 db.Parkings.Add(newParking);
@@ -86,6 +98,15 @@ namespace ParkMate2._0.Helpers
                 Console.ReadKey();
             }
         }
+
+        public static bool HasActiveParking(User user)
+        {
+            using (var db = new ParkMate20Context())
+            {
+                return db.Parkings.Any(p => p.Car.UserId == user.UserId && p.Duration == 0);
+            }
+        }
+
         public static void ShowParkingSpots()  // table for parkingspot
         {
             var table = new Table();
@@ -114,8 +135,10 @@ namespace ParkMate2._0.Helpers
 
             using (var db = new ParkMate20Context())
             {
+                // Get active parking session
                 var activeParking = db.Parkings
-                    .Where(p => p.Car.UserId == user.UserId)
+                    .Include(p => p.Car) // Include car details
+                    .Where(p => p.Car.UserId == user.UserId && p.Duration == 0)
                     .OrderByDescending(p => p.Timestamp)
                     .FirstOrDefault();
 
@@ -126,38 +149,42 @@ namespace ParkMate2._0.Helpers
                     return;
                 }
 
-                var car = db.Cars.FirstOrDefault(c => c.CarId == activeParking.CarId);
-                if (car == null)
+                // Double-check if ParkingSpotName is valid
+                if (string.IsNullOrEmpty(activeParking.ParkingSpotName) || activeParking.ParkingSpotName == "Unknown")
                 {
-                    AnsiConsole.MarkupLine("[red]Error retrieving car details![/]");
+                    AnsiConsole.MarkupLine("[red]Parking spot details are missing. Please verify your session.[/]");
                     Console.ReadKey();
                     return;
                 }
 
-                var parkingSpot = ParkingSpotData.GetAllSpots().FirstOrDefault(p => activeParking.PayMethod != null);
+                // Retrieve the correct parking spot
+                var parkingSpot = ParkingSpotData.GetAllSpots()
+                    .FirstOrDefault(p => p.Name == activeParking.ParkingSpotName);
+
                 if (parkingSpot == null)
                 {
-                    AnsiConsole.MarkupLine("[red]Error retrieving parking spot details![/]");
+                    AnsiConsole.MarkupLine("[red]Parking spot details not found in the system![/]");
                     Console.ReadKey();
                     return;
                 }
 
-                // calculate time and cost
+                // Calculate duration and cost
                 DateTime startTime = activeParking.Timestamp ?? DateTime.Now;
                 DateTime endTime = DateTime.Now;
                 TimeSpan duration = endTime - startTime;
-                decimal totalHours = (decimal)duration.TotalHours;
+                decimal totalHours = Math.Max(0.01m, (decimal)duration.TotalHours); // Minimum 0.01 hours
                 decimal totalCost = totalHours * parkingSpot.PricePerHour;
 
+                // Update parking with duration and save changes
                 activeParking.Duration = totalHours;
                 db.SaveChanges();
 
-                // summary
+                // Display parking summary
                 Console.Clear();
                 AnsiConsole.MarkupLine("[green]Parking Summary:[/]");
-                AnsiConsole.MarkupLine($"[yellow]Car:[/] {car.Model} ({car.LicensePlate})");
-                AnsiConsole.MarkupLine($"[yellow]Start Time:[/] {activeParking.Timestamp}");
-                AnsiConsole.MarkupLine($"[yellow]End Time:[/] {endTime}");
+                AnsiConsole.MarkupLine($"[yellow]Car:[/] {activeParking.Car.Model} ({activeParking.Car.LicensePlate})");
+                AnsiConsole.MarkupLine($"[yellow]Start Time:[/] {startTime:yyyy-MM-dd HH:mm}");
+                AnsiConsole.MarkupLine($"[yellow]End Time:[/] {endTime:yyyy-MM-dd HH:mm}");
                 AnsiConsole.MarkupLine($"[yellow]Total Duration:[/] {totalHours:F2} hours");
                 AnsiConsole.MarkupLine($"[yellow]Total Cost:[/] {totalCost:C} SEK");
 
@@ -173,49 +200,58 @@ namespace ParkMate2._0.Helpers
             using (var db = new ParkMate20Context())
             {
                 var userParkings = db.Parkings
-                    .Where(p => p.Car.UserId == user.UserId)
-                    .OrderByDescending(p => p.Timestamp)
-                    .ToList();
+                .Where(p => p.Car.UserId == user.UserId && p.Duration > 0)  // Visa bara avslutade parkeringar
+                .OrderByDescending(p => p.Timestamp)
+                .ToList();
 
-                if (!userParkings.Any())
+
+                if (userParkings == null || !userParkings.Any())
                 {
                     AnsiConsole.MarkupLine("[red]No parking history found![/]");
+                    Console.ReadKey();
+                    return;
                 }
-                else
+
+                // Create a table to display parking history
+                var table = new Table();
+                table.AddColumn("[yellow]Car Model[/]");
+                table.AddColumn("[yellow]License Plate[/]");
+                table.AddColumn("[yellow]Start Time[/]");
+                table.AddColumn("[yellow]End Time[/]");
+                table.AddColumn("[yellow]Duration (Hours)[/]");
+                table.AddColumn("[yellow]Total Cost (SEK)[/]");
+
+                foreach (var parking in userParkings)
                 {
-                    var table = new Table();
-                    table.AddColumn("[yellow]Car[/]");
-                    table.AddColumn("[yellow]License Plate[/]");
-                    table.AddColumn("[blue]Start Time[/]");
-                    table.AddColumn("[blue]End Time[/]");
-                    table.AddColumn("[yellow]Duration (hours)[/]");
-                    table.AddColumn("[red]Total Cost (SEK)[/]");
+                    // Get the car associated with the current parking
+                    var car = db.Cars.FirstOrDefault(c => c.CarId == parking.CarId);
+                    if (car == null) continue;
 
-                    foreach (var parking in userParkings)
-                    {
-                        var car = db.Cars.FirstOrDefault(c => c.CarId == parking.CarId);
-                        if (car == null) continue;
+                    DateTime startTime = parking.Timestamp ?? DateTime.Now;
 
-                        DateTime startTime = parking.Timestamp ?? DateTime.Now;
-                        DateTime endTime = startTime.AddHours((double)parking.Duration);
-                        decimal totalCost = parking.Duration * 10m;
+                    // Ensure duration is safely converted, even if null
+                    decimal? duration = parking.Duration;
+                    decimal durationValue = duration ?? 0m;
 
-                        table.AddRow(
-                            $"[green]{car.Model}[/]",
-                            $"[green]{car.LicensePlate}[/]",
-                            $"[blue]{startTime}[/]",
-                            $"[blue]{endTime}[/]",
-                            $"[yellow]{parking.Duration:F2}[/]",
-                            $"[red]{totalCost:C}[/]"
-                        );
-                    }
+                    DateTime endTime = startTime.AddHours((double)durationValue);
+                    decimal totalCost = durationValue * 10m; // Assuming 10 SEK per hour as the cost
 
-                    AnsiConsole.Write(table);
+                    // Add a row to the table for this parking record
+                    table.AddRow(
+                        car.Model ?? "N/A",
+                        car.LicensePlate ?? "N/A",
+                        $"{startTime:yyyy-MM-dd HH:mm}",
+                        $"{endTime:yyyy-MM-dd HH:mm}",
+                        $"{durationValue:F2}",
+                        $"{totalCost:C}"
+                    );
                 }
+                AnsiConsole.Write(table);
             }
 
             Console.ReadKey();
         }
+
         public static void ShowAllParkings()
         {
             using (var db = new ParkMate20Context())
@@ -251,5 +287,64 @@ namespace ParkMate2._0.Helpers
                 Console.ReadKey();
             }
         }
+        public static void ViewCurrentParking(User user)
+        {
+            using (var db = new ParkMate20Context())
+            {
+                // Hämta aktiv parkering
+                var activeParking = db.Parkings
+                    .Include(p => p.Car) // Inkludera bilar
+                    .Where(p => p.Car.UserId == user.UserId && p.Duration == 0)
+                    .OrderByDescending(p => p.Timestamp)
+                    .FirstOrDefault();
+
+                if (activeParking == null)
+                {
+                    AnsiConsole.MarkupLine("[red]You do not have an active parking session.[/]");
+                    Console.ReadKey();
+                    return;
+                }
+
+                var parkingSpot = ParkingSpotData.GetAllSpots()
+                    .FirstOrDefault(p => p.Name == activeParking.ParkingSpotName);
+
+                if (parkingSpot == null)
+                {
+                    AnsiConsole.MarkupLine("[red]Error retrieving parking spot details![/]");
+                    Console.ReadKey();
+                    return;
+                }
+
+                // Beräkna aktuell tid och kostnad
+                DateTime startTime = activeParking.Timestamp ?? DateTime.Now;
+                TimeSpan duration = DateTime.Now - startTime;
+                decimal totalHours = (decimal)duration.TotalHours;
+                decimal estimatedCost = totalHours * parkingSpot.PricePerHour;
+
+                // Visa aktuell parkering
+                Console.Clear();
+                AnsiConsole.MarkupLine("[blue]Current Parking Session:[/]");
+
+                var table = new Table();
+                table.AddColumn("[yellow]Car Model[/]");
+                table.AddColumn("[yellow]License Plate[/]");
+                table.AddColumn("[yellow]Start Time[/]");
+                table.AddColumn("[yellow]Elapsed Time (Hours)[/]");
+                table.AddColumn("[yellow]Estimated Cost (SEK)[/]");
+
+                table.AddRow(
+                    activeParking.Car?.Model ?? "N/A",
+                    activeParking.Car?.LicensePlate ?? "N/A",
+                    $"{startTime:yyyy-MM-dd HH:mm}",
+                    $"{totalHours:F2}",
+                    $"{estimatedCost:C}"
+                );
+
+                AnsiConsole.Write(table);
+                Console.ReadKey();
+            }
+        }
+
+
     }
 }

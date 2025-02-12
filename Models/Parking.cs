@@ -16,4 +16,6 @@ public partial class Parking
     public string PayMethod { get; set; } = null!;
 
     public virtual Car Car { get; set; } = null!;
+    public string ParkingSpotName { get; set; }
+
 }
